@@ -1,0 +1,146 @@
+-- Serviços
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Variáveis
+local lookEnabled = false
+local lookDistance = 20
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Frame principal
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 150)
+mainFrame.Position = UDim2.new(0, 20, 0, 20)
+mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+mainFrame.Visible = true
+mainFrame.Parent = screenGui
+
+-- Título estiloso
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "👁️ EyeTracker Elite 👁️"
+title.TextColor3 = Color3.fromRGB(0, 255, 200)
+title.TextScaled = true
+title.Font = Enum.Font.Arcade
+title.Parent = mainFrame
+
+-- Som ao abrir
+local openSound = Instance.new("Sound")
+openSound.SoundId = "rbxassetid://9118828010" -- exemplo de som top
+openSound.Volume = 1
+openSound.Parent = mainFrame
+openSound:Play()
+
+-- Botão Ativar/Desativar
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0.9, 0, 0, 40)
+toggleButton.Position = UDim2.new(0.05, 0, 0.35, 0)
+toggleButton.Text = "Ativar Look"
+toggleButton.TextColor3 = Color3.new(1,1,1)
+toggleButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+toggleButton.Parent = mainFrame
+
+toggleButton.MouseButton1Click:Connect(function()
+    lookEnabled = not lookEnabled
+    toggleButton.Text = lookEnabled and "Desativar Look" or "Ativar Look"
+end)
+
+-- Distância
+local distanceLabel = Instance.new("TextLabel")
+distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+distanceLabel.Position = UDim2.new(0, 0, 0.65, 0)
+distanceLabel.BackgroundTransparency = 1
+distanceLabel.TextColor3 = Color3.new(1,1,1)
+distanceLabel.Text = "Distância: "..lookDistance
+distanceLabel.TextScaled = true
+distanceLabel.Parent = mainFrame
+
+local distanceButton = Instance.new("TextButton") 
+distanceButton.Size = UDim2.new(0.9, 0, 0, 20)
+distanceButton.Position = UDim2.new(0.05, 0, 0.80, 0)
+distanceButton.Text = "Aumentar Distância"
+distanceButton.BackgroundColor3 = Color3.fromRGB(100,100,100)
+distanceButton.TextColor3 = Color3.new(1,1,1)
+distanceButton.Parent = mainFrame
+
+distanceButton.MouseButton1Click:Connect(function()
+    lookDistance = lookDistance + 5
+    if lookDistance > 100 then
+        lookDistance = 5
+    end
+    distanceLabel.Text = "Distância: "..lookDistance
+end)
+
+-- Botão abrir/fechar movível
+local toggleGUIButton = Instance.new("TextButton")
+toggleGUIButton.Size = UDim2.new(0, 130, 0, 30)
+toggleGUIButton.Position = UDim2.new(0, 300, 0, 20)
+toggleGUIButton.Text = "EyeTracker Elite"
+toggleGUIButton.BackgroundColor3 = Color3.fromRGB(70,70,70)
+toggleGUIButton.TextColor3 = Color3.new(1,1,1)
+toggleGUIButton.Parent = screenGui
+
+toggleGUIButton.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+    openSound:Play() -- toca som ao abrir/fechar
+end)
+
+-- Movimentar botão (touch/arrastar)
+local dragging = false
+local dragStart = Vector2.new(0,0)
+local startPos = UDim2.new(0,0,0,0)
+
+toggleGUIButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = toggleGUIButton.Position
+    end
+end)
+
+toggleGUIButton.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - dragStart
+        toggleGUIButton.Position = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+toggleGUIButton.InputEnded:Connect(function(input)
+    dragging = false
+end)
+
+-- Função para jogador mais próximo
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = lookDistance
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local otherHRP = otherPlayer.Character.HumanoidRootPart
+            local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
+            if distance <= shortestDistance then
+                shortestDistance = distance
+                closestPlayer = otherPlayer
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- Rotação do personagem
+RunService.RenderStepped:Connect(function()
+    if lookEnabled then
+        local targetPlayer = getClosestPlayer()
+        if targetPlayer then
+            local targetPos = targetPlayer.Character.HumanoidRootPart.Position
+            humanoidRootPart.CFrame = CFrame.new(humanoidRootPart.Position, Vector3.new(targetPos.X, humanoidRootPart.Position.Y, targetPos.Z))
+        end
+    end
+end)
